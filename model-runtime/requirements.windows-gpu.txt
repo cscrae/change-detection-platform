@@ -1,4 +1,5 @@
-# CUDA 12 / cuDNN 9 DLLs must be installed separately on Windows.
+# Core Windows GPU dependencies. setup-local.ps1 reuses configured CUDA DLLs
+# or installs onnxruntime-gpu[cuda,cudnn] when a complete runtime is unavailable.
 numpy==2.2.6
 onnxruntime-gpu==1.23.2
 rasterio==1.4.4

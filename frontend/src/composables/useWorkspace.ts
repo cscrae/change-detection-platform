@@ -3,6 +3,7 @@ import { models, settingsState, refreshSettings } from '../utils/settings';
 import { useDetection, type ResultOverlayPayload } from './useDetection';
 import type { AreaBounds, AreaPolygon, AreaGeometry } from '../utils/api';
 import { polygonFromPoints, rectangleEditPoints } from '../utils/selectionGeometry';
+import { imageryPhaseLabel } from '../utils/timeline';
 import {
   getRegionData,
   type RegionFeature,
@@ -301,7 +302,7 @@ function createWorkspace() {
             : phase.scenes.every((scene) => scene.date_precision === 'day' && scene.date === date),
         );
         if (matches.length !== 1)
-          fail(`时相 ${date} 不存在或日期精度不匹配；当前目录可用时相：${available.map((phase) => phase.month).join('、') || '无'}`);
+          fail(`时相 ${date} 不存在或日期精度不匹配；当前目录可用时相：${available.map(imageryPhaseLabel).join('、') || '无'}`);
         return matches[0];
       });
     } else if (request.phase_ids?.length) {

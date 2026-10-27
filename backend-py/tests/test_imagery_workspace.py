@@ -61,13 +61,50 @@ class ImageryWorkspaceTests(unittest.TestCase):
         result = self.crop(['coarse', 'fine', 'fine', 'next'])
         self.assertEqual(result['count'], 2)
         self.assertEqual([row['date'] for row in result['images']], ['2025-01-01', '2025-03-01'])
+        self.assertEqual([row['date_precision'] for row in result['images']], ['month', 'month'])
         with rasterio.open(result['images'][0]['path']) as src:
             rgb = src.read()
             self.assertEqual(rgb[0, src.height//2, src.width//4], 100)
             self.assertEqual(rgb[0, src.height//2, 3*src.width//4], 200)
             self.assertTrue((src.dataset_mask() == 255).all())
+            self.assertEqual(src.tags()['date_precision'], 'month')
         self.assertEqual(len(result['images'][0]['source_files']), 2)
         self.assertEqual(self.crop(['next'])['count'], 1)
+
+    def test_selected_annual_source_covers_full_year_and_preserves_precision(self):
+        self.rows[0]['date_precision'] = 'year'
+        for start, end in [('2025-08-01', '2025-08-31'), ('2025-12-31', '2025-12-31')]:
+            with self.subTest(start=start, end=end):
+                result = local.crop_images(self.bounds, start, end, 0,
+                                          Path(self.temporary.name) / 'out', '130100', ['coarse', 'next'])
+                self.assertEqual(result['count'], 1)
+                image = result['images'][0]
+                self.assertEqual(image['date'], '2025-01-01')
+                self.assertEqual(image['scene_ids'], ['coarse'])
+                self.assertEqual(image['date_precision'], 'year')
+                self.assertEqual(result['dates_requested'], ['2025-01-01'])
+                with rasterio.open(image['path']) as src:
+                    self.assertEqual(src.tags()['date_precision'], 'year')
+                    self.assertEqual(src.tags()['capture_month'], '2025-01')
+                    self.assertTrue((src.read() == 100).all())
+        for outside in ['2024-12-31', '2026-01-01']:
+            with self.subTest(outside=outside):
+                result = local.crop_images(self.bounds, outside, outside, 0,
+                                          Path(self.temporary.name) / 'out', '130100', ['coarse'])
+                self.assertEqual(result['count'], 0)
+                self.assertEqual(result['dates_requested'], [])
+
+    def test_mixed_annual_and_monthly_sources_keep_unknown_month(self):
+        self.rows[0]['date_precision'] = 'year'
+        image = self.crop(['coarse', 'fine'])['images'][0]
+        self.assertEqual(image['date'], '2025-01-01')
+        self.assertEqual(image['date_precision'], 'year')
+        self.assertEqual(set(image['scene_ids']), {'coarse', 'fine'})
+        with rasterio.open(image['path']) as src:
+            self.assertEqual(src.tags()['date_precision'], 'year')
+            values = src.read(1)
+            self.assertTrue((values == 100).any())
+            self.assertTrue((values == 200).any())
 
     def test_tile_has_same_priority_and_transparent_outside_region(self):
         z = 14; lng, lat = 114.305, 38.105

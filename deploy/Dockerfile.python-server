@@ -1,0 +1,20 @@
+FROM python:3.13-slim-bookworm
+ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PYTHONDONTWRITEBYTECODE=1
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gdal-bin libexpat1 libgomp1 ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /opt/platform/backend-py
+COPY backend-py/requirements.lock.txt /tmp/requirements.lock.txt
+COPY model-runtime/requirements.gpu.txt /tmp/requirements.gpu.txt
+RUN pip install -r /tmp/requirements.lock.txt \
+    && pip uninstall -y onnxruntime \
+    && pip install -r /tmp/requirements.gpu.txt && pip check
+COPY backend-py/app ./app
+COPY model-runtime/src /opt/platform/model-runtime/src
+# Business weights are mounted read-only, never included in the server image.
+ENV CHANGE_DEPLOYMENT_DIR=/opt/platform/model-runtime \
+    CHANGE_ONNX_PYTHON=/usr/local/bin/python CHANGE_ONNX_PROVIDER=cuda \
+    CHANGE_MODEL_PATH=/opt/models/enforcement_2.onnx \
+    GDAL_PAM_ENABLED=NO \
+    LD_LIBRARY_PATH=/usr/local/lib/python3.13/site-packages/nvidia/cublas/lib:/usr/local/lib/python3.13/site-packages/nvidia/cuda_runtime/lib:/usr/local/lib/python3.13/site-packages/nvidia/cudnn/lib:/usr/local/lib/python3.13/site-packages/nvidia/cufft/lib:/usr/local/lib/python3.13/site-packages/nvidia/curand/lib:/usr/local/lib/python3.13/site-packages/nvidia/cuda_nvrtc/lib:/usr/local/lib/python3.13/site-packages/nvidia/nvjitlink/lib
+EXPOSE 8090
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8090", "--workers", "1"]

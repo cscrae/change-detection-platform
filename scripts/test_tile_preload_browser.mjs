@@ -45,11 +45,11 @@ try {
       const detailReady=[...layer.resources.values()].filter(r=>Number.isFinite(layer.priority(r.coords))).every(r=>r.loaded);
       h.starts.push({key:`${z}/${x}/${y}`,z,kind,at:performance.now(),detailReady,moving:h.cache.scheduler.moving});
       h.active++;h.maximum=Math.max(h.maximum,h.active);
-      if(kind==='ring'){h.backgrounds++;h.maxBackgrounds=Math.max(h.maxBackgrounds,h.backgrounds);}
+      if(kind!=='detail'){h.backgrounds++;h.maxBackgrounds=Math.max(h.maxBackgrounds,h.backgrounds);}
       return new Promise((resolve,reject)=>{
         let done=false;
         const finish=abort=>{if(done)return;done=true;clearTimeout(timer);options.signal?.removeEventListener('abort',cancel);h.active--;
-          if(kind==='ring')h.backgrounds--;
+          if(kind!=='detail')h.backgrounds--;
           if(abort){h.aborted.push({kind,key:`${z}/${x}/${y}`});reject(new DOMException('Aborted','AbortError'));}
           else resolve(new Response(blobs[kind],{status:200}));};
         const cancel=()=>finish(true),timer=setTimeout(()=>finish(false),kind==='base'?35:kind==='ring'?90:h.delay);
@@ -61,8 +61,7 @@ try {
   await page.waitForFunction(()=>[...window.h.cache.active.layer.preview.items.values()].filter(i=>i.coord.z<=7&&i.loaded).length===3);
   const initial=await page.evaluate(()=>({first:window.h.starts.slice(0,3),latency:window.h.starts[0].at-window.h.activated,
     detailPending:window.h.cache.active.layer.isLoading(),base:[...document.querySelectorAll('.cdp-tile-preview')].map(i=>i.dataset.tile)}));
-  assert.deepEqual(initial.first.map(r=>r.z),[6,7,7]);assert.ok(initial.latency<100,'no 200 ms settle wait');
-  assert.ok(initial.detailPending,'coarse imagery is decoded before detailed viewport completes');
+  assert.ok(initial.first.every(r=>r.kind==='detail'),'visible detail precedes whole-footprint coarse requests');assert.ok(initial.latency<100,'no 200 ms settle wait');
   assert.equal(initial.base.length,3);
   await page.screenshot({path:path.join(out,'initial-coarse.png')});
   await page.waitForFunction(()=>window.h.starts.some(r=>r.kind==='ring'));

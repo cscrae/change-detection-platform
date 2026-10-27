@@ -1,0 +1,6 @@
+{
+  "LOCAL_IMAGERY_DIR": "data/imagery",
+  "TEST_UP_SOURCE_ROOT": "\\\\nas.example.invalid\\imagery\\hebei\\test_up",
+  "CHANGE_ONNX_PYTHON": "model-runtime/.venv-gpu/Scripts/python.exe",
+  "CHANGE_MODEL_PATH": "model-runtime/model/enforcement_2.onnx"
+}

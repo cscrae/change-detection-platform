@@ -1,0 +1,165 @@
+# Standalone Linux single-host GPU recipe. Do not combine with docker-compose.yml.
+name: change-detection-server
+services:
+  nginx:
+    image: change-detection-frontend:server
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.frontend
+      args:
+        VITE_BASEMAP_URL: ${VITE_BASEMAP_URL:-}
+        VITE_BASEMAP_CRS: ${VITE_BASEMAP_CRS:-}
+        VITE_BASEMAP_DATUM: ${VITE_BASEMAP_DATUM:-}
+        VITE_BASEMAP_ATTRIBUTION: ${VITE_BASEMAP_ATTRIBUTION:-}
+        VITE_BASEMAP_MAX_NATIVE_ZOOM: ${VITE_BASEMAP_MAX_NATIVE_ZOOM:-}
+    ports:
+      - "127.0.0.1:${HTTP_PORT:-8088}:80"
+    volumes:
+      - type: bind
+        source: ${SERVER_DATA_DIR:?Set SERVER_DATA_DIR}
+        target: /data
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      default:
+        ipv4_address: 172.30.88.10
+    depends_on:
+      go-api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  go-api:
+    image: change-detection-go:server
+    build:
+      context: ../backend-go
+    environment:
+      GO_API_PORT: 8080
+      GO_LISTEN_HOST: 0.0.0.0
+      CDP_TRUST_LOCAL_PROXY: "1"
+      PY_ALGO_URL: http://py-algo:8090
+      DATA_DIR: /data
+      ASSET_DIR: /opt/assets
+      UPLOAD_MAX_MB: 2048
+    volumes:
+      - type: bind
+        source: ${SERVER_DATA_DIR:?Set SERVER_DATA_DIR}
+        target: /data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${SERVER_BOUNDARY_DIR:?Set SERVER_BOUNDARY_DIR}
+        target: /opt/assets/boundaries
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${SERVER_MODEL_DIR:?Set SERVER_MODEL_DIR}
+        target: /opt/models
+        read_only: true
+        bind:
+          create_host_path: false
+    mem_limit: ${GO_MEMORY_LIMIT:-2g}
+    cpus: ${GO_CPUS:-2}
+    pids_limit: 256
+    depends_on:
+      py-algo:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: *logging
+
+  py-algo:
+    image: change-detection-python:server-gpu
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.python-server
+    environment:
+      DATA_DIR: /data
+      LOCAL_IMAGERY_DIR: /opt/assets/imagery
+      ASSET_DIR: /opt/assets
+      HEBEI_BOUNDARY_FILE: /opt/assets/boundaries/hebei-administrative-province.geojson
+      CHANGE_MODEL_PATH: /opt/models/enforcement_2.onnx
+      CHANGE_ONNX_PROVIDER: cuda
+      TILE_RENDER_CONCURRENCY: ${TILE_RENDER_CONCURRENCY:-2}
+      TILE_MAX_PENDING: ${TILE_MAX_PENDING:-4}
+      TILE_QUEUE_WAIT_MS: ${TILE_QUEUE_WAIT_MS:-1000}
+      TILE_DATASET_HANDLES: ${TILE_DATASET_HANDLES:-4}
+      TILE_GDAL_CACHE_MB: ${TILE_GDAL_CACHE_MB:-64}
+    volumes:
+      - type: bind
+        source: ${SERVER_DATA_DIR:?Set SERVER_DATA_DIR}
+        target: /data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${SERVER_CATALOG_DIR:?Set SERVER_CATALOG_DIR}
+        target: /opt/assets/imagery
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${SERVER_IMAGERY_DIR:?Set SERVER_IMAGERY_DIR}
+        target: /mnt/imagery
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${SERVER_POI_DIR:?Set SERVER_POI_DIR}
+        target: /opt/assets/poi
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${SERVER_BOUNDARY_DIR:?Set SERVER_BOUNDARY_DIR}
+        target: /opt/assets/boundaries
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${SERVER_MODEL_DIR:?Set SERVER_MODEL_DIR}
+        target: /opt/models
+        read_only: true
+        bind:
+          create_host_path: false
+    mem_limit: ${PY_MEMORY_LIMIT:-8g}
+    cpus: ${PY_CPUS:-4}
+    pids_limit: 512
+    shm_size: ${PY_SHM_SIZE:-1g}
+    stop_grace_period: 90s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: ${GPU_COUNT:-1}
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8090/py/health', timeout=5)"]
+      interval: 60s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    logging: *logging
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.88.0/24
+          gateway: 172.30.88.1

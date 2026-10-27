@@ -37,6 +37,8 @@ function load(relativePath, api = {}) {
       if (name === '../utils/settings') return { settingsState: vue.ref(), models: vue.ref([]), refreshSettings: async () => {} };
       // Navigation is independently exercised by real Leaflet browser tests.
       if (name === '../utils/regionNavigation') return { RegionNavigation: class { setRegion() {} suspend() {} resume() {} dispose() {} } };
+      // This VM exercises MapBasemap state without rendering its presentation children.
+      if (name === './MapContextControls.vue') return {};
       if (name === '../utils/api') return { ...api };
       if (name === '../utils/timeline') return load('../frontend/src/utils/timeline.ts', api).exports;
       if (name === '../utils/results') return load('../frontend/src/utils/results.ts', api).exports;
@@ -186,6 +188,17 @@ test('annual imagery labels preserve declared temporal precision', () => {
   assert.equal(phaseDate({ ...image('annual'), meta_json: JSON.stringify({ date_precision: 'year' }) }), '2024');
   assert.equal(phaseDate({ ...image('daily'), meta_json: JSON.stringify({ date_precision: 'day' }) }), '2024-09-01');
   assert.equal(phaseDate(image('legacy')), '2024-09');
+});
+
+test('workspace phase labels hide unknown months only for exclusively annual scenes', () => {
+  const { imageryPhaseLabel } = load('../frontend/src/utils/timeline.ts').exports;
+  const phase = { month: '2023-01', scenes: [{ date_precision: 'year' }, { date_precision: 'year' }] };
+  assert.equal(imageryPhaseLabel(phase), '2023年（月份未知）');
+  assert.equal(phase.month, '2023-01', 'display formatting preserves the phase request key');
+  assert.equal(imageryPhaseLabel({ ...phase, scenes: [{ date_precision: 'month' }] }), '2023-01');
+  assert.equal(imageryPhaseLabel({ ...phase, scenes: [{ date_precision: 'day' }] }), '2023-01');
+  assert.equal(imageryPhaseLabel({ ...phase, scenes: [{ date_precision: 'year' }, { date_precision: 'month' }] }), '2023-01');
+  assert.equal(imageryPhaseLabel({ ...phase, scenes: [] }), '2023-01');
 });
 
 test('hotspots rank by measured area with stable ties and do not mutate input', () => {

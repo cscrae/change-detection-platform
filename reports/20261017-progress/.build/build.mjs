@@ -1,11 +1,17 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {Presentation,PresentationFile} from '@oai/artifact-tool';
 const root='D:/WorkSpace/Research/003_change_detection/Code/change-detection-platform';
 const work=root+'/reports/20261017-progress', build=work+'/.build', out=work+'/output';
-const skill='C:/Users/drizzle/.codex/plugins/cache/openai-primary-runtime/presentations/26.1013.11914/skills/presentations';
-const runtime='C:/Users/drizzle/.cache/codex-runtimes/codex-primary-runtime/dependencies';
+// Supply local installation paths explicitly; never commit a user's home directory.
+const skill=process.env.CDP_PRESENTATIONS_SKILL_DIR?.trim();
+const runtime=process.env.CDP_ARTIFACT_RUNTIME_DIR?.trim();
+if(!skill||!runtime)throw new Error('Set CDP_PRESENTATIONS_SKILL_DIR and CDP_ARTIFACT_RUNTIME_DIR to the local presentation skill and workspace runtime directories before building this report.');
+for(const [name,directory] of [['CDP_PRESENTATIONS_SKILL_DIR',skill],['CDP_ARTIFACT_RUNTIME_DIR',runtime]]){
+  try{if(!(await fs.stat(directory)).isDirectory())throw new Error();}
+  catch{throw new Error(name+' must point to an existing local directory.');}
+}
+const {Presentation,PresentationFile}=await import('@oai/artifact-tool');
 const C={navy:'#123458',blue:'#1765A0',teal:'#008B92',ink:'#24364A',muted:'#62748A',light:'#EDF3F8',line:'#D7E2EC',amber:'#A46B15'};
 const p=Presentation.create({slideSize:{width:1280,height:720}});
 function rect(s,x,y,w,h,fill){return s.shapes.add({geometry:'rect',position:{left:x,top:y,width:w,height:h},fill,line:{fill:'none',width:0}});}

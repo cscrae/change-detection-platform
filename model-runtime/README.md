@@ -24,7 +24,7 @@ model-runtime/
 
 ## 环境
 
-Windows 按 [环境安装](../ENVIRONMENT_SETUP.md) 创建 `model-runtime/.venv-gpu`，使用 `requirements.windows-gpu.txt`，另外提供 CUDA 12 / cuDNN 9 DLL。Linux GPU 依赖见 `requirements.gpu.txt`，模型还需 NumPy/Rasterio；现有 Docker GPU stage 从服务基础环境安装 GPU ORT 与 CUDA 包。
+Windows 按 [环境安装](../ENVIRONMENT_SETUP.md) 创建 `model-runtime/.venv-gpu`，使用 `requirements.windows-gpu.txt` 安装核心依赖。安装脚本会复用已配置的完整 CUDA 12 / cuDNN 9 DLL 目录，否则由 ONNX Runtime 的 `cuda,cudnn` extras 安装运行库。可使用 `scripts/check_gpu_runtime.py` 验证实际 GPU 卷积，无需业务模型。Linux GPU 依赖见 `requirements.gpu.txt`，模型还需 NumPy/Rasterio；现有 Docker GPU stage 从服务基础环境安装 GPU ORT 与 CUDA 包。
 
 `requirements.txt` 是独立 CLI 的 GPU 依赖组合，不替代平台服务锁文件。多文件 VRT 构建和 CLI 独立矢量导出还需 GDAL 命令行工具；已有单个 GeoTIFF、关闭矢量输出的示例不要求执行这些工具。
 

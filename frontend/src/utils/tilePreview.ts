@@ -73,8 +73,10 @@ export class TilePreview {
       this.items.set(key, item);
       const base = this.base.has(key);
       const job = {
-        background: !base,
-        priority: () => this.paused ? Infinity : base ? -1e9 + coord.z : this.idle ? 1e12 : Infinity,
+        // Whole-footprint previews may span hundreds of remote TIFFs. Keep every
+        // preview in the scheduler's single background slot, behind visible detail.
+        background: true,
+        priority: () => this.paused ? Infinity : base ? 1e9 + coord.z : this.idle ? 1e12 : Infinity,
         run: async () => {
           try {
             const response = await fetch(this.url(coord), { signal: item.controller.signal });

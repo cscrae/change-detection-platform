@@ -219,8 +219,7 @@ export class PhaseLayerCache {
     }
     let entry = this.entries.get(key);
     if (!entry) {
-      const ids = phase.scenes.filter(scene => scene.available).map(scene => scene.id).sort();
-      const url = `/py/local/regions/${encodeURIComponent(phase.region_id)}/mosaic/{z}/{x}/{y}.png?scene_ids=${encodeURIComponent(ids.join(','))}&v=${encodeURIComponent(phase.version)}`;
+      const url = `/py/local/regions/${encodeURIComponent(phase.region_id)}/mosaic/{z}/{x}/{y}.png?month=${encodeURIComponent(phase.month)}&v=${encodeURIComponent(phase.version)}`;
       const layer = new RetainedTileLayer(url, { minZoom: 0, maxZoom: 20, noWrap: true, keepBuffer: 1,
         updateWhenIdle: false, updateInterval: 50, updateWhenZooming: true, attribution: '本地遥感影像',
         bounds: phase.bounds ? [[phase.bounds[1], phase.bounds[0]], [phase.bounds[3], phase.bounds[2]]] : undefined }, this.scheduler);

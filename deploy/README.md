@@ -1,5 +1,7 @@
 # 容器部署配方
 
+新增服务器迁移、只读中转站挂载及分块负载验收，请使用[服务器与大尺度计算说明](SERVER_SCALE.md)和独立 `docker-compose.server.yml`。2026-10-27 目标服务器尚未确定；新配方已做本地索引迁移及离线计划验证，Linux 容器/GPU 服务器验收仍待执行。下文保留原本机容器配方。
+
 按 2026-10-12 的 Compose、Dockerfile、nginx 和代理脚本核对。尚无已完成 Docker 构建、Linux GPU 或容器浏览器验收的证据；本机历史 CUDA 报告范围见 [系统状态](../docs/CURRENT_STATUS.md)。以下为待执行部署步骤，不表示已验证成功。
 
 ## 构建与资源

@@ -1,4 +1,5 @@
 import type { ChangePatchCollection, DetectionStats, ImageInfo } from './api';
+import type { ImageryPhase } from './regions';
 
 export interface TimelinePair {
   key: string;
@@ -42,6 +43,13 @@ export function phaseDate(image: ImageInfo): string {
     if (precision === 'day') return image.capture_date?.slice(0, 10) || '日期未知';
   } catch { /* Older image records retain their existing month/day formatting. */ }
   return image.capture_date?.slice(0, image.source === 'local' ? 7 : 10) || '日期未知';
+}
+
+/** Display label only; phase.month remains the workspace key and request value. */
+export function imageryPhaseLabel(phase: Pick<ImageryPhase, 'month' | 'scenes'>): string {
+  return phase.scenes.length > 0 && phase.scenes.every(scene => scene.date_precision === 'year')
+    ? `${phase.month.slice(0, 4)}年（月份未知）`
+    : phase.month;
 }
 
 export function pairBounds(before: ImageInfo, after: ImageInfo): [number, number, number, number] | undefined {

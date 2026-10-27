@@ -6,6 +6,7 @@ import ImageManager from '../components/ImageManager.vue';
 import RegionImageryList from '../components/RegionImageryList.vue';
 import MapBasemap from '../components/MapBasemap.vue';
 import type { AreaBounds, AreaPolygon } from '../utils/api';
+import { imageryPhaseLabel } from '../utils/timeline';
 const {
   selectedArea,
   selectedGeometry,
@@ -134,11 +135,11 @@ function selectCountyBoundary() {
             :aria-selected="activeMonth === phase.month"
             @click="activeMonth = phase.month"
           >
-            {{ phase.month }} <span class="text-faint text-xs">{{ phase.scenes.length }} 张</span>
+            {{ imageryPhaseLabel(phase) }} <span class="text-faint text-xs">{{ phase.scenes.length }} 张</span>
           </button>
           <button
             class="phase-close"
-            :aria-label="`关闭时相 ${phase.month}`"
+            :aria-label="`关闭时相 ${imageryPhaseLabel(phase)}`"
             :disabled="inProgress"
             @click="closePhase(phase.month)"
           >

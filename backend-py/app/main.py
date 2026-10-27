@@ -5,7 +5,7 @@ from app.utils.tile_queue import configured_renderer
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.routers import admin, algorithms, detect, export, overlay, thumbnail, wayback
+from app.routers import admin, algorithms, detect, export, overlay, poi, thumbnail, wayback
 
 @asynccontextmanager
 async def lifespan(app):
@@ -39,6 +39,7 @@ app.include_router(detect.router)
 app.include_router(thumbnail.router)
 app.include_router(overlay.router)
 app.include_router(export.router)
+app.include_router(poi.router)
 
 
 @app.get("/")

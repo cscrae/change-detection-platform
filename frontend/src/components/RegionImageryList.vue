@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { ImageryPhase } from '../utils/regions';
+import { imageryPhaseLabel } from '../utils/timeline';
 const props = defineProps<{ name?: string; phases: ImageryPhase[]; loadedIds: string[]; loading: boolean; error: string; disabled: boolean }>();
 const emit = defineEmits<{ (event: 'add' | 'remove', id: string): void; (event: 'refresh'): void }>();
 const availableCount = (phase: ImageryPhase) => phase.scenes.filter(scene => scene.available).length;
@@ -38,10 +39,10 @@ function dragPhase(event: DragEvent, phase: ImageryPhase) {
       <li v-for="phase in group.phases" :key="phase.id" :data-phase-id="phase.id"
         class="imagery-scene" :class="{ 'is-loaded': loadedIds.includes(phase.id), 'is-unavailable': !phase.available }"
         :draggable="!disabled && phase.available" @dragstart="dragPhase($event, phase)">
-        <strong class="imagery-month text-cyan-300">{{ phase.month }}</strong>
+        <strong class="imagery-month text-cyan-300">{{ imageryPhaseLabel(phase) }}</strong>
         <span class="imagery-count text-muted">{{ availableCount(phase) }} 张可用影像</span>
         <button class="phase-action" :disabled="disabled || !phase.available"
-          :aria-label="`${loadedIds.includes(phase.id) ? '移除' : '加入'} ${phase.month} 时相`"
+          :aria-label="`${loadedIds.includes(phase.id) ? '移除' : '加入'} ${imageryPhaseLabel(phase)} 时相`"
           :title="!phase.available ? '该时相暂无可用影像' : loadedIds.includes(phase.id) ? '移除时相' : '加入工作区'"
           @click="emit(loadedIds.includes(phase.id) ? 'remove' : 'add', phase.id)">
           <span aria-hidden="true">{{ loadedIds.includes(phase.id) ? '−' : '+' }}</span>

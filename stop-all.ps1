@@ -14,7 +14,7 @@ function Get-ServiceName($Process) {
         # the closing quote, so another checkout is never selected.
         foreach ($service in @(
             @{ Name = 'Python'; Directory = 'backend-py'; Pattern = '-m uvicorn app\.main:app' },
-            @{ Name = 'Go API'; Directory = 'backend-go'; Pattern = 'run\s+\./cmd/server' },
+            @{ Name = 'Go API'; Directory = 'backend-go'; Pattern = 'run\s+\./cmd/server|\.tools[/\\]bin[/\\]cdp-server\.exe' },
             @{ Name = 'Frontend'; Directory = 'frontend'; Pattern = 'vite[/\\]bin[/\\]vite\.js' }
         )) {
             $directory = (Join-Path $projectRoot $service.Directory).Replace("'", "''")
@@ -29,6 +29,9 @@ function Get-ServiceName($Process) {
     if ($Process.Name -in @('python.exe', 'pythonw.exe') -and
         $command -match ('(?i)(?:^|["\s])' + [regex]::Escape($python) + '(?:"|\s)') -and
         $command -match '-m\s+uvicorn\s+app\.main:app') { return 'Python' }
+    $server = Join-Path $projectRoot '.tools\bin\cdp-server.exe'
+    if ($Process.Name -eq 'cdp-server.exe' -and
+        [string]::Equals([string]$Process.ExecutablePath, $server, [StringComparison]::OrdinalIgnoreCase)) { return 'Go API' }
     return $null
 }
 
