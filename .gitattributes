@@ -1,1 +1,4 @@
 *.sh text eol=lf
+
+# Preserve the exact source bytes recorded by the boundary provenance SHA-256.
+/data/boundaries/hebei-source.geojson text eol=lf

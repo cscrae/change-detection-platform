@@ -76,8 +76,8 @@
     "passed": true,
     "slideCount": 12,
     "sha256": "172e18de1159e52b91e5137380357d0df3f76f0be49773b20a4455a77b42ef07",
-    "runtimeNodeModules": "C:/Users/drizzle/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules",
-    "nodeExecutable": "C:\\Users\\drizzle\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\bin\\node.exe"
+    "runtimeNodeModules": "<REDACTED_RUNTIME_NODE_MODULES>",
+    "nodeExecutable": "<REDACTED_NODE_EXECUTABLE>"
   },
   "nativeTableArithmetic": {
     "performed": true,
@@ -128,5 +128,6 @@
     "sourceChartOwnersExplicitlyDeclared": true,
     "validatorRan": false,
     "passed": true
-  }
+  },
+  "path_redaction": "用户目录与运行时绝对路径已脱敏；其余验证字段保留原记录，本次未重新执行验证。"
 }

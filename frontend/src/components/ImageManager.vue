@@ -47,11 +47,27 @@ function locateScene(scene: LocalScene): void {
 }
 function clearBounds(): void { emit('area', null); }
 function applyCoordInput(): void {
-  const [west, south, east, north] = [wInput, sInput, eInput, nInput].map(input => parseFloat(input.value));
-  if (![west, south, east, north].every(Number.isFinite) || west < -180 || east > 180 || south < -90 || north > 90) {
-    errorMsg.value = '请输入有效的经纬度数值';
-    return;
+  const fields = [
+    { label: '西 W（经度）', input: wInput, min: -180, max: 180 },
+    { label: '南 S（纬度）', input: sInput, min: -90, max: 90 },
+    { label: '东 E（经度）', input: eInput, min: -180, max: 180 },
+    { label: '北 N（纬度）', input: nInput, min: -90, max: 90 },
+  ];
+  const values: number[] = [];
+  for (const field of fields) {
+    const text = String(field.input.value).trim();
+    const value = Number(text);
+    if (!text || !Number.isFinite(value)) {
+      errorMsg.value = `${field.label}未填写或格式无效，请只输入数字和小数点`;
+      return;
+    }
+    if (value < field.min || value > field.max) {
+      errorMsg.value = `${field.label}须在 ${field.min} 至 ${field.max} 之间，请检查经纬度是否填反`;
+      return;
+    }
+    values.push(value);
   }
+  const [west, south, east, north] = values;
   if (west >= east || south >= north) {
     errorMsg.value = '西经度须小于东经度，南纬度须小于北纬度';
     return;
@@ -128,19 +144,19 @@ onMounted(async () => {
         <div class="grid grid-cols-2 gap-2">
           <label class="flex flex-col">
             <span class="text-muted">西 W（经度）</span>
-            <input v-model="wInput" type="number" step="0.0001" class="input" />
+            <input v-model="wInput" type="number" step="any" min="-180" max="180" class="input" />
           </label>
           <label class="flex flex-col">
             <span class="text-muted">南 S（纬度）</span>
-            <input v-model="sInput" type="number" step="0.0001" class="input" />
+            <input v-model="sInput" type="number" step="any" min="-90" max="90" class="input" />
           </label>
           <label class="flex flex-col">
             <span class="text-muted">东 E（经度）</span>
-            <input v-model="eInput" type="number" step="0.0001" class="input" />
+            <input v-model="eInput" type="number" step="any" min="-180" max="180" class="input" />
           </label>
           <label class="flex flex-col">
             <span class="text-muted">北 N（纬度）</span>
-            <input v-model="nInput" type="number" step="0.0001" class="input" />
+            <input v-model="nInput" type="number" step="any" min="-90" max="90" class="input" />
           </label>
         </div>
         <button

@@ -17,9 +17,13 @@ data/cache/
 data/logs/
 data/validation/
 data/imagery/
+data/server-export/
 
 # 本机模型权重保留用于运行，但通过独立制品交付，不提交到 GitHub。
 model-runtime/model/*.onnx
+# Local model delivery application/archive supplied separately from source.
+/ChangeDetectionApp/
+/ChangeDetectionApp.zip
 
 # 影像与结果的常见扩展名兜底（防止误放到源码目录）
 *.tif
@@ -34,6 +38,8 @@ model-runtime/model/*.onnx
 .env
 .env.*
 !.env.example
+# Actual server deployment values are private; publish server.env.example only.
+/deploy/server.env
 *.pem
 *.key
 credentials.json
@@ -125,6 +131,7 @@ Desktop.ini
 .omo/
 
 # Local test output and caches
+.tools/
 .cache/
 .pip-cache/
 .npm-cache/

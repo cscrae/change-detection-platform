@@ -7,7 +7,9 @@ from app.utils.tile_queue import tile_response
 from app.utils.tile_worker import prepare_job
 from pydantic import BaseModel, Field
 from app.fetchers.local import (catalog, crop_images, render_tile, render_mosaic, province,
-                                BoundaryUnavailable, imagery_phases, StaleMosaicVersion, selection_pixels)
+                                BoundaryUnavailable, imagery_phases, StaleMosaicVersion, selection_pixels,
+                                resolve_mosaic_scene_ids)
+from app.fetchers import local
 from shapely.geometry import mapping
 from app.fetchers.regions import region_collection, region_feature, display_sources
 
@@ -116,16 +118,27 @@ def list_region_scenes(region_id: str, refresh: bool = False, admin_code: str | 
 
 @router.get('/local/regions/{region_id}/mosaic/{z}/{x}/{y}.png')
 async def mosaic_tile_http(request: Request, region_id: str, z: int, x: int, y: int,
-                           scene_ids: str = Query(...), v: str | None = None):
-    prepare = partial(prepare_job, 'mosaic', region_id, None, scene_ids.split(',') if scene_ids else [], z, x, y, v)
+                           scene_ids: str | None = Query(None), v: str | None = None,
+                           month: str | None = None):
+    prepare = partial(_prepare_mosaic_job, region_id, z, x, y, scene_ids, v, month)
     return await _render_http(request, prepare, 'private, max-age=86400' if v else 'no-cache')
 
 
-def mosaic_tile(region_id: str, z: int, x: int, y: int, scene_ids: str = Query(...), v: str | None = None):
+def _prepare_mosaic_job(region_id, z, x, y, scene_ids=None, version=None, month=None):
+    # Keep phase resolution and the original prepare_job's strict row/version
+    # validation in one catalogue snapshot; refresh uses this same RLock.
+    with local._catalog_lock:
+        ids = resolve_mosaic_scene_ids(region_id, scene_ids, month, version)
+        return prepare_job('mosaic', region_id, None, ids, z, x, y, version)
+
+
+def mosaic_tile(region_id: str, z: int, x: int, y: int, scene_ids: str | None = None,
+                v: str | None = None, month: str | None = None):
     try:
-        ids = scene_ids.split(',') if scene_ids else []
-        return Response(render_mosaic(region_id, ids, z, x, y, v), media_type='image/png',
-                        headers={'Cache-Control': 'private, max-age=86400' if v else 'no-cache'})
+        with local._catalog_lock:
+            ids = resolve_mosaic_scene_ids(region_id, scene_ids, month, v)
+            return Response(render_mosaic(region_id, ids, z, x, y, v), media_type='image/png',
+                            headers={'Cache-Control': 'private, max-age=86400' if v else 'no-cache'})
     except StaleMosaicVersion as exc:
         raise HTTPException(409, detail=str(exc), headers={'Cache-Control': 'no-store'}) from exc
     except KeyError as exc:

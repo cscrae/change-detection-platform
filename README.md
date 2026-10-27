@@ -8,6 +8,7 @@
 - Go/Gin API：配置版本、模型登记、任务队列、SQLite 元数据和结果持久化。
 - FastAPI、Rasterio、Shapely：影像索引、瓦片、裁切、后处理和导出。
 - ONNX Runtime：平台检测使用经过验证的 CUDA 推理模型。
+- 参考底图与地图上下文：可配置标准 XYZ 底图、自适应经纬网、鼠标/中心经纬度，以及本地 GeoJSON POI 查询与弹窗。配置和坐标要求见 [地图说明](docs/MAP_CONTEXT.md)。
 
 平台面向单机或内网使用，不包含多用户权限、公共互联网服务和自动业务备份。边界 GeoJSON 已纳入源码；原始影像、模型和运行数据库属于部署制品，需要单独准备。
 
@@ -26,6 +27,12 @@
 
 ### 3. 安装依赖
 
+本机推荐使用安装脚本，自动准备隔离的 Python 环境、项目 Node/Go、GPU 运行库，并构建前后端：
+
+    .\setup-local.cmd
+
+需要已有 uv 和 NVIDIA 驱动。脚本创建被 Git 忽略的 `.env.local.json`，路径示例见 `local-settings.example.json`；模型和影像可以稍后在管理页接入。完整说明见 [环境安装](ENVIRONMENT_SETUP.md)。以下命令保留为手动安装参考：
+
     python -m venv backend-py/.venv-local
     backend-py/.venv-local/Scripts/python.exe -m pip install -r backend-py/requirements.lock.txt --index-url https://pypi.org/simple
     Set-Location frontend
@@ -37,7 +44,7 @@
     python -m venv model-runtime/.venv-gpu
     model-runtime/.venv-gpu/Scripts/python.exe -m pip install -r model-runtime/requirements.windows-gpu.txt --index-url https://pypi.org/simple
 
-不要在同一个 Python 环境中同时安装 onnxruntime 和 onnxruntime-gpu。解释器选择和 CUDA DLL 查找规则见 ENVIRONMENT_SETUP.md。
+不要在同一个 Python 环境中同时安装 onnxruntime 和 onnxruntime-gpu。安装脚本会复用已配置的完整 CUDA/cuDNN DLL 目录，或自动安装运行库；手动安装核心依赖时需自行提供 DLL。解释器选择和 CUDA DLL 查找规则见 ENVIRONMENT_SETUP.md。
 
 ### 4. 配置影像并启动
 
@@ -52,6 +59,8 @@
 服务日志运行时写入 data/logs。启动器会创建 backend-go/data、data/cache 等运行目录，它们不进入 Git。
 
 ## Docker GPU 部署
+
+计划迁移到 Linux GPU 服务器并测试较大区域时，使用新增的[服务器部署与分块测试说明](deploy/SERVER_SCALE.md)：提供独立 Compose、只读模型/影像/POI 挂载、Windows VRT 引用迁移、服务器预检和分阶段基准工具。尚未确定服务器时可以离线准备索引及分块计划；这不代表 Linux CUDA 或大范围压测已经通过。
 
 目标主机需要 Docker、NVIDIA Container Toolkit 和可用 NVIDIA 驱动。从项目根目录执行：
 
@@ -77,6 +86,7 @@
 
 ## 开发验证
 
+    $env:PATH = (Resolve-Path .tools/node).Path + ';' + $env:PATH
     Set-Location frontend
     npm run build
     npm run format:check
@@ -86,7 +96,7 @@
     Set-Location ..
     Set-Location backend-go
     $env:GOCACHE = (Join-Path (Get-Location) '.cache/go-build')
-    go test ./...
+    ..\.tools\go\bin\go.exe test ./...
     Set-Location ..
 
 浏览器验收脚本位于 scripts/。真实 CUDA 检测、Docker/Linux、UNC 断网恢复和大范围长时负载属于不同验证范围，不能由前端构建或健康检查替代。详见 docs/DEVELOPMENT.md 和 docs/CURRENT_STATUS.md。

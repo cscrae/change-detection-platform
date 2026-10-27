@@ -9,6 +9,7 @@ import json
 import math
 import os
 import hashlib
+import re
 from datetime import date
 
 import numpy as np
@@ -57,6 +58,38 @@ def imagery_phases(rows, region_id):
                            bounds=[min(b[0] for b in bounds), min(b[1] for b in bounds),
                                    max(b[2] for b in bounds), max(b[3] for b in bounds)] if bounds else None))
     return phases
+
+
+def resolve_mosaic_scene_ids(region_id, scene_ids=None, month=None, version=None):
+    """Resolve a short, versioned phase query without trusting client membership.
+
+    Callers that prepare/render a tile hold _catalog_lock across this resolution
+    and their existing row/version validation, so refresh cannot split snapshots.
+    Legacy explicit scene IDs retain the same downstream validation.
+    """
+    if month is not None and scene_ids is not None:
+        raise ValueError('month 与 scene_ids 不能同时传入')
+    if month is None:
+        if scene_ids is None:
+            raise ValueError('请选择 month 或 scene_ids')
+        return scene_ids.split(',') if scene_ids else []
+    if not isinstance(month, str) or not re.fullmatch(r'[0-9]{4}-(0[1-9]|1[0-2])', month):
+        raise ValueError('month 必须使用 YYYY-MM 格式')
+    if not version:
+        raise ValueError('按 month 请求拼接瓦片时必须提供时相版本 v')
+    from app.fetchers.regions import region_feature
+    region_feature(region_id)
+    with _catalog_lock:
+        regional = [row for row in catalog() if row.get('region_id') == region_id]
+        phase = next((item for item in imagery_phases(regional, region_id) if item['month'] == month), None)
+        if phase is None:
+            raise ValueError('该月份没有影像，请刷新影像目录')
+        if phase['version'] != version:
+            raise StaleMosaicVersion('时相已更新，请刷新影像目录')
+        ids = [row['id'] for row in phase['scenes'] if row.get('available', True)]
+        if not ids:
+            raise ValueError('该月份没有可用影像')
+        return ids
 
 
 def single_flight(function):
@@ -528,8 +561,11 @@ def crop_mosaics(bounds, start, end, limit, output_dir, region_id, scene_ids, ao
     phases = {}
     for row in rows:
         acquired = date.fromisoformat(row['date'][:7] + '-01')
-        period_end = acquired.replace(day=calendar.monthrange(acquired.year, acquired.month)[1])
-        if acquired <= end and period_end >= start:
+        annual = row.get('date_precision') == 'year'
+        period_start = acquired.replace(month=1, day=1) if annual else acquired
+        period_end = (acquired.replace(month=12, day=31) if annual else
+                      acquired.replace(day=calendar.monthrange(acquired.year, acquired.month)[1]))
+        if period_start <= end and period_end >= start:
             phases.setdefault(row['date'][:7], []).append(row)
     phases = sorted(phases.items())
     if limit:
@@ -544,6 +580,7 @@ def crop_mosaics(bounds, start, end, limit, output_dir, region_id, scene_ids, ao
                 contributing, overlap, width, height = _mosaic_grid(aoi, sources)
             except ValueError as exc:
                 raise ValueError(f'{month}: {exc}') from exc
+            date_precision = 'year' if any(row.get('date_precision') == 'year' for row in contributing) else 'month'
             w, s, e, n = overlap.bounds
             transform = from_bounds(w, s, e, n, width, height)
             rgb, valid = read_mosaic(contributing, 'EPSG:4326', transform, width, height,
@@ -564,12 +601,12 @@ def crop_mosaics(bounds, start, end, limit, output_dir, region_id, scene_ids, ao
                     dst.write(rgb)
                     dst.write_mask(valid.astype('uint8') * 255)
                     dst.update_tags(source_files=json.dumps(files, ensure_ascii=False), capture_month=month,
-                                    date_precision='month')
+                                    date_precision=date_precision)
             progress("saving_images", 95 * (index + 1) / len(phases), force=True)
             images.append(dict(path=str(path.resolve()), date=month + '-01', bounds=[w, s, e, n],
                                width=width, height=height, bands=3, dtype='uint8', crs='EPSG:4326',
                                source='local', source_file=files[0], source_files=files,
-                               scene_ids=[row['id'] for row in sources], date_precision='month'))
+                               scene_ids=[row['id'] for row in sources], date_precision=date_precision))
     except Exception:
         for path in written:
             path.unlink(missing_ok=True)

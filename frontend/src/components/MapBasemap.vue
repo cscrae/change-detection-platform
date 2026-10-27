@@ -8,10 +8,12 @@ import {
   onUnmounted,
   onActivated,
   onDeactivated,
+  shallowRef,
 } from 'vue';
 import { settingsState } from '../utils/settings';
 import { PhaseLayerCache } from '../utils/phaseLayerCache';
 import L from 'leaflet';
+import MapContextControls from './MapContextControls.vue';
 import 'leaflet/dist/leaflet.css';
 import { LOCAL_MAP_OPTIONS, addCoverage } from '../utils/basemap';
 import {
@@ -46,7 +48,7 @@ import {
   type Position,
 } from '../utils/selectionGeometry';
 import { colorText, newestImagesFirst, newestResultsFirst } from '../utils/mapLayers';
-import { phaseDate, sourceName, type TimelinePair } from '../utils/timeline';
+import { imageryPhaseLabel, phaseDate, sourceName, type TimelinePair } from '../utils/timeline';
 import { RegionNavigation } from '../utils/regionNavigation';
 import type { ResultOverlayPayload } from '../composables/useDetection';
 
@@ -73,6 +75,8 @@ const emit = defineEmits<{
 
 const mapRef = ref<HTMLDivElement | null>(null);
 let map: L.Map | null = null;
+const contextMap = shallowRef<L.Map | null>(null);
+const contextActive = ref(true);
 let currentTile: L.LayerGroup | null = null;
 let phaseCache: PhaseLayerCache | null = null;
 const boundaryError = ref('');
@@ -288,7 +292,8 @@ function animateToBounds(bounds: L.LatLngBounds, options: L.FitBoundsOptions = {
 function arrangeRegionLabels(): void {
   if (!map) return;
   const container = map.getContainer(), extent = container.getBoundingClientRect();
-  const controls = [toolbarRef.value, layersRef.value, ...container.querySelectorAll<HTMLElement>('.leaflet-control')]
+  const controlsRoot = container.closest('[data-map-workspace]') || container;
+  const controls = [toolbarRef.value, layersRef.value, ...controlsRoot.querySelectorAll<HTMLElement>('.leaflet-control, [data-map-context-controls]')]
     .filter((node): node is HTMLElement => !!node && node.isConnected)
     .map(node => node.getBoundingClientRect());
   const occupied: { x: number; y: number; width: number }[] = [];
@@ -762,7 +767,7 @@ function updateSelectionPixels(): void {
     content.textContent = '像元尺寸：请先加载时相';
     return;
   }
-  content.textContent = `${phase.month} · 正在计算像元尺寸…`;
+  content.textContent = `${imageryPhaseLabel(phase)} · 正在计算像元尺寸…`;
   const request = new AbortController();
   pixelRequest = request;
   pixelTimer = setTimeout(async () => {
@@ -784,7 +789,7 @@ function updateSelectionPixels(): void {
       if (request.signal.aborted) return;
       if (!response.ok)
         throw new Error(typeof result.detail === 'string' ? result.detail : '像元尺寸计算失败');
-      content.textContent = `${phase.month} · 矩形裁切网格\n${result.width.toLocaleString()} × ${result.height.toLocaleString()} 像元\n网格共 ${result.pixels.toLocaleString()} 像元`;
+      content.textContent = `${imageryPhaseLabel(phase)} · 矩形裁切网格\n${result.width.toLocaleString()} × ${result.height.toLocaleString()} 像元\n网格共 ${result.pixels.toLocaleString()} 像元`;
     } catch (error) {
       if (!request.signal.aborted)
         content.textContent = error instanceof Error ? error.message : '像元尺寸计算失败';
@@ -1698,6 +1703,7 @@ onMounted(() => {
     doubleClickZoom: false,
   });
   map = m;
+  contextMap.value = m;
   regionNavigation = new RegionNavigation(m);
   rebuildPhaseCache();
   // Parent stacking contexts prevent even long timelines crossing layer groups.
@@ -1747,6 +1753,7 @@ onMounted(() => {
 });
 
 onActivated(() => {
+  contextActive.value = true;
   window.addEventListener('keydown', onAreaKeydown);
   void nextTick(() => {
     if (!hasVisibleMap()) return;
@@ -1757,6 +1764,7 @@ onActivated(() => {
   });
 });
 onDeactivated(() => {
+  contextActive.value = false;
   interruptNavigation();
   window.removeEventListener('keydown', onAreaKeydown);
   resizeObserver?.disconnect();
@@ -1767,6 +1775,7 @@ onDeactivated(() => {
 });
 
 onUnmounted(() => {
+  contextMap.value = null;
   navigationRequest?.abort();
   countyBoundaryRequest?.abort();
   clearTimeout(pixelTimer);
@@ -1855,6 +1864,7 @@ onUnmounted(() => {
       @dragleave="dragOver = false"
     >
       <div ref="mapRef" class="absolute inset-0" />
+      <MapContextControls :map="contextMap" :active="contextActive" :interactive="!drawMode" />
       <div
         v-if="dragOver"
         class="absolute inset-0 z-[1300] border-2 border-cyan-400 bg-cyan-400/10 flex items-center justify-center pointer-events-none"
@@ -1895,7 +1905,7 @@ onUnmounted(() => {
       </section>
       <p
         v-if="boundaryError || imageryError"
-        class="absolute left-14 top-3 z-[1100] panel p-2 text-xs text-red-500"
+        class="absolute left-14 bottom-20 z-[1100] panel p-2 text-xs text-red-500 max-w-[calc(100%-80px)]"
       >
         {{ boundaryError || imageryError }}
       </p>
@@ -1961,7 +1971,7 @@ onUnmounted(() => {
       </p>
       <p
         v-if="selectionMessage"
-        class="absolute left-14 top-14 z-[1100] panel px-3 py-2 text-xs text-amber-300 pointer-events-none"
+        class="absolute left-14 bottom-32 z-[1100] panel px-3 py-2 text-xs text-amber-300 pointer-events-none max-w-[calc(100%-80px)]"
         role="status"
       >
         {{ selectionMessage }}
@@ -2099,7 +2109,7 @@ onUnmounted(() => {
               >{{ workspaceMode ? '当前时相影像' : '区域年度影像' }}
               <span class="text-faint"
                 >{{ activeRegion.properties.name }} ·
-                {{ workspaceMode ? activePhase?.month : regionYear }}</span
+                {{ workspaceMode ? (activePhase ? imageryPhaseLabel(activePhase) : '') : regionYear }}</span
               ></span
             >
           </div>

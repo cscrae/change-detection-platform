@@ -1,7 +1,7 @@
 {
-  "mask_path": "C:\\Users\\drizzle\\Documents\\Codex\\2026-10-07\\migrate-the-project-located-at-d\\work\\detection-smoke\\result\\hebei_onnx_mask.tif",
-  "confidence_path": "C:\\Users\\drizzle\\Documents\\Codex\\2026-10-07\\migrate-the-project-located-at-d\\work\\detection-smoke\\result\\hebei_onnx_confidence.tif",
-  "geojson_path": "C:\\Users\\drizzle\\Documents\\Codex\\2026-10-07\\migrate-the-project-located-at-d\\work\\detection-smoke\\result\\change.geojson",
+  "mask_path": "<REDACTED_OUTPUT_DIR>/hebei_onnx_mask.tif",
+  "confidence_path": "<REDACTED_OUTPUT_DIR>/hebei_onnx_confidence.tif",
+  "geojson_path": "<REDACTED_OUTPUT_DIR>/change.geojson",
   "stats": {
     "changed_pixels": 0,
     "total_pixels": 1024,
@@ -11,5 +11,6 @@
     "algorithm": "hebei_onnx",
     "feature_count": 0,
     "changed_area_pixels": 0
-  }
+  },
+  "path_redaction": "用户输出目录的绝对路径已脱敏；其余检测字段保留原记录，本次未重新执行检测。"
 }
